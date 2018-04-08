@@ -121,6 +121,10 @@ insecure = not _config.get('verify_ssl', True)
 do_checksum = _config.get('checksum', True)
 
 
+# Whether Spack should use filesystem locks
+locks = _config.get('locks', True)
+
+
 # If this is True, spack will not clean the environment to remove
 # potentially harmful variables before builds.
 dirty = _config.get('dirty', False)
