@@ -75,6 +75,7 @@ import pytest
 from llnl.util.filesystem import join_path, touch
 from spack.util.multiproc import Barrier
 from llnl.util.lock import Lock, WriteTransaction, ReadTransaction, LockError
+from llnl.util.lock.dummy import Lock as DummyLock
 
 
 #
@@ -183,14 +184,22 @@ def private_lock_path(lock_dir):
     lock_file = join_path(lock_dir, 'lockfile')
     if mpi:
         lock_file += '.%s' % comm.rank
+
     yield lock_file
+
+    if os.path.exists(lock_file):
+        os.unlink(lock_file)
 
 
 @pytest.fixture
 def lock_path(lock_dir):
     """This lock is shared among all processes in a multiproc test."""
     lock_file = join_path(lock_dir, 'lockfile')
+
     yield lock_file
+
+    if os.path.exists(lock_file):
+        os.unlink(lock_file)
 
 
 def local_multiproc_test(*functions):
@@ -900,3 +909,21 @@ def test_transaction_with_context_manager_and_exception(lock_path):
     assert vals['exception']
     assert not vals['exited_fn']
     assert not vals['exception_fn']
+
+
+def test_dummy_lock(private_lock_path):
+    """Ensure that dummy locks do no real locking"""
+    lock = DummyLock(private_lock_path)
+
+    print(type(lock))
+    lock.acquire_read()
+    assert not os.path.exists(private_lock_path)
+
+    lock.acquire_write()
+    assert not os.path.exists(private_lock_path)
+
+    lock.release_write()
+    assert not os.path.exists(private_lock_path)
+
+    lock.release_read()
+    assert not os.path.exists(private_lock_path)
