@@ -53,6 +53,8 @@ import copy
 import os
 import re
 import sys
+import multiprocessing
+from contextlib import contextmanager
 from six import string_types
 from six import iteritems
 
@@ -103,6 +105,18 @@ configuration_paths = (
     ('user', spack.paths.user_config_path)
 )
 
+#: Hard-coded default values for some key configuration options.
+#: This ensures that Spack will still work even if config.yaml in
+#: the defaults scope is removed.
+config_defaults = {
+    'config': {
+        'verify_ssl': True,
+        'checksum': True,
+        'locks': True,
+        'dirty': False,
+        'build_jobs': multiprocessing.cpu_count(),
+    }
+}
 
 #: metavar to use for commands that accept scopes
 #: this is shorter and more readable than listing all choices
@@ -209,9 +223,14 @@ class InternalConfigScope(ConfigScope):
     config file settings are accessed the same way, and Spack can easily
     override settings from files.
     """
-    def __init__(self, name):
+    def __init__(self, name, data=None):
         self.name = name
         self.sections = syaml.syaml_dict()
+        if data:
+            for section in data:
+                dsec = data[section]
+                _validate_section({section: dsec}, section_schemas[section])
+                self.sections[section] = dsec
 
     def get_section_filename(self, section):
         raise NotImplementedError(
@@ -219,9 +238,7 @@ class InternalConfigScope(ConfigScope):
 
     def get_section(self, section):
         """Just reads from an internal dictionary."""
-        if section not in self.sections:
-            self.sections[section] = syaml.syaml_dict()
-        return self.sections[section]
+        return self.sections.get(section, None)
 
     def write_section(self, section):
         """This only validates, as the data is already in memory."""
@@ -365,7 +382,6 @@ class Configuration(object):
                 continue
 
             if section not in data:
-                tty.warn("Skipping bad configuration file: '%s'" % scope.path)
                 continue
 
             merged_section = _merge_yaml(merged_section, data)
@@ -443,6 +459,20 @@ class Configuration(object):
             raise ConfigError("Error reading configuration: %s" % section)
 
 
+@contextmanager
+def override(path, value):
+    """Simple way to override config settings within a context."""
+    config = spack.config.get_configuration()
+    overrides = InternalConfigScope('overrides')
+    config.push_scope(overrides)
+    config.set(path, value, scope='overrides')
+
+    yield config
+
+    scope = config.pop_scope()
+    assert scope is overrides
+
+
 def get_configuration():
     """This constructs Spack's standard configuration scopes
 
@@ -461,6 +491,11 @@ def get_configuration():
         platform = spack.architecture.platform().name
 
         _configuration = Configuration()
+
+        # first do the builtin, hardcoded defaults
+        _configuration.push_scope(
+            InternalConfigScope('_builtin', config_defaults))
+
         for name, path in configuration_paths:
             # add the regular scope
             _configuration.push_scope(ConfigScope(name, path))
