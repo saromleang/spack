@@ -104,7 +104,7 @@ def repo_add(args):
     repo = Repo(canon_path)
 
     # If that succeeds, finally add it to the configuration.
-    repos = spack.config.get_config('repos', args.scope)
+    repos = spack.config.get('repos', scope=args.scope)
     if not repos:
         repos = []
 
@@ -112,13 +112,13 @@ def repo_add(args):
         tty.die("Repository is already registered with Spack: %s" % path)
 
     repos.insert(0, canon_path)
-    spack.config.update_config('repos', repos, args.scope)
+    spack.config.set('repos', repos, args.scope)
     tty.msg("Added repo with namespace '%s'." % repo.namespace)
 
 
 def repo_remove(args):
     """Remove a repository from Spack's configuration."""
-    repos = spack.config.get_config('repos', args.scope)
+    repos = spack.config.get('repos', scope=args.scope)
     path_or_namespace = args.path_or_namespace
 
     # If the argument is a path, remove that repository from config.
@@ -127,7 +127,7 @@ def repo_remove(args):
         repo_canon_path = canonicalize_path(repo_path)
         if canon_path == repo_canon_path:
             repos.remove(repo_path)
-            spack.config.update_config('repos', repos, args.scope)
+            spack.config.set('repos', repos, args.scope)
             tty.msg("Removed repository %s" % repo_path)
             return
 
@@ -137,7 +137,7 @@ def repo_remove(args):
             repo = Repo(path)
             if repo.namespace == path_or_namespace:
                 repos.remove(path)
-                spack.config.update_config('repos', repos, args.scope)
+                spack.config.set('repos', repos, args.scope)
                 tty.msg("Removed repository %s with namespace '%s'."
                         % (repo.root, repo.namespace))
                 return
@@ -150,7 +150,7 @@ def repo_remove(args):
 
 def repo_list(args):
     """Show registered repositories and their namespaces."""
-    roots = spack.config.get_config('repos', args.scope)
+    roots = spack.config.get('repos', scope=args.scope)
     repos = []
     for r in roots:
         try:

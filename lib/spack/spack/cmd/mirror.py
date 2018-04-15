@@ -102,7 +102,7 @@ def mirror_add(args):
     if url.startswith('/'):
         url = 'file://' + url
 
-    mirrors = spack.config.get_config('mirrors', scope=args.scope)
+    mirrors = spack.config.get('mirrors', scope=args.scope)
     if not mirrors:
         mirrors = syaml_dict()
 
@@ -116,14 +116,14 @@ def mirror_add(args):
     items = [(n, u) for n, u in mirrors.items()]
     items.insert(0, (args.name, url))
     mirrors = syaml_dict(items)
-    spack.config.update_config('mirrors', mirrors, scope=args.scope)
+    spack.config.set('mirrors', mirrors, scope=args.scope)
 
 
 def mirror_remove(args):
     """Remove a mirror by name."""
     name = args.name
 
-    mirrors = spack.config.get_config('mirrors', scope=args.scope)
+    mirrors = spack.config.get('mirrors', scope=args.scope)
     if not mirrors:
         mirrors = syaml_dict()
 
@@ -131,13 +131,13 @@ def mirror_remove(args):
         tty.die("No mirror with name %s" % name)
 
     old_value = mirrors.pop(name)
-    spack.config.update_config('mirrors', mirrors, scope=args.scope)
+    spack.config.set('mirrors', mirrors, scope=args.scope)
     tty.msg("Removed mirror %s with url %s" % (name, old_value))
 
 
 def mirror_list(args):
     """Print out available mirrors to the console."""
-    mirrors = spack.config.get_config('mirrors', scope=args.scope)
+    mirrors = spack.config.get('mirrors', scope=args.scope)
     if not mirrors:
         tty.msg("No mirrors configured.")
         return
