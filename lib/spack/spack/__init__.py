@@ -48,11 +48,6 @@ from spack.util.path import canonicalize_path
 binary_cache_retrieved_specs = set()
 
 
-#: Directories where to search for templates
-template_dirs = spack.config.get('config:template_dirs')
-template_dirs = [canonicalize_path(x) for x in template_dirs]
-
-
 # If this is True, spack will not clean the environment to remove
 # potentially harmful variables before builds.
 dirty = spack.config.get('config:dirty', False)
