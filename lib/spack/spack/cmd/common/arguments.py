@@ -26,6 +26,7 @@
 import argparse
 
 import spack.cmd
+import spack.config
 import spack.modules
 import spack.spec
 import spack.store
@@ -86,7 +87,7 @@ class CleanOrDirtyAction(argparse.Action):
     """Sets the dirty flag in the current namespace"""
 
     def __init__(self, *args, **kwargs):
-        kwargs['default'] = spack.dirty
+        kwargs['default'] = spack.config.get('config:dirty')
         super(CleanOrDirtyAction, self).__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
