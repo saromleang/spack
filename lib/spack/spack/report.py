@@ -23,6 +23,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 ##############################################################################
 """Tools to produce reports of spec installations"""
+import codecs
 import collections
 import functools
 import itertools
@@ -33,6 +34,7 @@ import socket
 import time
 import traceback
 import xml.sax.saxutils
+from six import text_type
 
 import llnl.util.lang
 import spack.build_environment
@@ -290,7 +292,9 @@ class collect_info(object):
         # Mapping Spack phases to the corresponding CTest/CDash phase.
         map_phases_to_cdash = {
             'autoreconf': 'configure',
-            'configure':  'configure'
+            'configure':  'configure',
+            'build':      'build',
+            'install':    'build'
         }
 
         # Initialize data structures common to each phase's report.
@@ -340,11 +344,38 @@ class collect_info(object):
             if phase == 'configure' and nerrors > 0:
                 report_data[phase]['status'] = 1
 
+            if phase == 'build':
+                # Convert log output from ASCII to Unicode and escape for XML.
+                def clean_log_event(event):
+                    event = vars(event)
+                    event['text'] = xml.sax.saxutils.escape(event['text'])
+                    event['pre_context'] = xml.sax.saxutils.escape(
+                        '\n'.join(event['pre_context']))
+                    event['post_context'] = xml.sax.saxutils.escape(
+                        '\n'.join(event['post_context']))
+                    # source_file and source_line_no are either strings or
+                    # the tuple (None,).  Distinguish between these two cases.
+                    if event['source_file'][0] is None:
+                        event['source_file'] = ''
+                        event['source_line_no'] = ''
+                    else:
+                        event['source_file'] = xml.sax.saxutils.escape(
+                            event['source_file'])
+                    return event
+
+                report_data[phase]['errors'] = []
+                report_data[phase]['warnings'] = []
+                for error in errors:
+                    report_data[phase]['errors'].append(clean_log_event(error))
+                for warning in warnings:
+                    report_data[phase]['warnings'].append(
+                        clean_log_event(warning))
+
             # Write the report.
             report_name = phase.capitalize() + ".xml"
             phase_report = os.path.join(self.filename, report_name)
 
-            with open(phase_report, 'w') as f:
+            with codecs.open(phase_report, 'w', 'utf-8') as f:
                 env = spack.tengine.make_environment()
                 site_template = os.path.join(templates[self.format_name],
                                              'Site.xml')
