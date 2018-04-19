@@ -37,6 +37,8 @@ from spack.error import SpackError
 from spack.spec import Spec
 from spack.main import SpackCommand
 
+from six.moves.urllib.error import HTTPError, URLError
+
 install = SpackCommand('install')
 
 
@@ -376,3 +378,51 @@ def test_install_mix_cli_and_files(clispecs, filespecs, tmpdir):
 
     install(*args, fail_on_error=False)
     assert install.returncode == 0
+
+
+@pytest.mark.disable_clean_stage_check
+def test_cdash_report_concretization_error(tmpdir, mock_fetch, install_mockery,
+                                           capfd, conflict_spec):
+    # capfd interferes with Spack's capturing
+    with capfd.disabled():
+        with tmpdir.as_cwd():
+            try:
+                install(
+                    '--log-format=cdash',
+                    '--log-file=cdash_reports',
+                    conflict_spec)
+            except SpackError:
+                report_dir = tmpdir.join('cdash_reports')
+                assert report_dir in tmpdir.listdir()
+                report_file = report_dir.join('Update.xml')
+                assert report_file in report_dir.listdir()
+                content = report_file.open().read()
+                assert '<UpdateReturnStatus>Conflicts in concretized spec' \
+                    in content
+            else:
+                # We expect this error to occur, so fail if it does not.
+                assert False
+
+
+@pytest.mark.disable_clean_stage_check
+def test_cdash_upload_build_error(tmpdir, mock_fetch, install_mockery,
+                                  capfd):
+    # capfd interferes with Spack's capturing
+    with capfd.disabled():
+        with tmpdir.as_cwd():
+            try:
+                install(
+                    '--log-format=cdash',
+                    '--log-file=cdash_reports',
+                    '--log-upload-site=http://localhost/fakeurl/submit.php?project=Spack',
+                    'build-error')
+            except (HTTPError, URLError):
+                report_dir = tmpdir.join('cdash_reports')
+                assert report_dir in tmpdir.listdir()
+                report_file = report_dir.join('Build.xml')
+                assert report_file in report_dir.listdir()
+                content = report_file.open().read()
+                assert '<Text>configure: error: in /path/to/some/file:</Text>' in content
+            else:
+                # We expect this error to occur, so fail if it does not.
+                assert False
