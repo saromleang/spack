@@ -123,6 +123,11 @@ packages. If neither are chosen, don't run tests for any packages."""
         default=None,
         help="filename for the log file. if not passed a default will be used"
     )
+    subparser.add_argument(
+        '--log-upload-site',
+        default=None,
+        help="where to upload the log files"
+    )
     arguments.add_common_arguments(subparser, ['yes_to_all'])
 
 
@@ -194,6 +199,7 @@ def install(parser, args, **kwargs):
     # 1. Abstract specs from cli
     reporter = spack.report.collect_info(args.log_format,
                                          ' '.join(args.package))
+    reporter.upload_site = args.log_upload_site
     if args.log_file:
         reporter.filename = args.log_file
 

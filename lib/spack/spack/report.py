@@ -26,6 +26,7 @@
 import codecs
 import collections
 import functools
+import hashlib
 import itertools
 import os.path
 import platform
@@ -35,6 +36,7 @@ import time
 import traceback
 import xml.sax.saxutils
 from six import text_type
+from six.moves.urllib.request import build_opener, HTTPHandler, Request
 
 import llnl.util.lang
 import spack.build_environment
@@ -386,6 +388,7 @@ class collect_info(object):
                                               report_name)
                 t = env.get_template(phase_template)
                 f.write(t.render(report_data))
+            self.upload_to_cdash(phase_report)
 
     def concretization_report(self, msg):
         if not self.format_name == 'cdash':
@@ -404,6 +407,34 @@ class collect_info(object):
                                            'Update.xml')
             t = env.get_template(update_template)
             f.write(t.render(report_data))
+        self.upload_to_cdash(output_filename)
+
+    def upload_to_cdash(self, filename):
+        if not self.upload_site:
+            return
+
+        opener = build_opener(HTTPHandler)
+        with open(filename, 'rb') as f:
+            filesize = os.path.getsize(filename)
+
+            # Compute md5 checksum for the contents of this file.
+            m = hashlib.md5()
+            while True:
+                data = f.read(8192)
+                if not data:
+                    break
+                m.update(data)
+            md5sum = m.hexdigest()
+            f.seek(0)
+
+            url = "{0}&MD5={1}".format(self.upload_site, md5sum)
+            request = Request(url, data=f)
+            request.add_header('Content-Type', 'text/xml')
+            request.add_header('Content-Length', filesize)
+            # By default, urllib2 only support GET and POST.
+            # CDash needs expects this file to be uploaded via PUT.
+            request.get_method = lambda: 'PUT'
+            url = opener.open(request)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.format_name:
