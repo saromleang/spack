@@ -33,10 +33,13 @@ class Gamess(Package):
 
     homepage = "http://www.msg.ameslab.gov/gamess"
 
-    version('development', '7bee8588b399f265976228cde8f75515', url="file://%s/gamess.tar.gz" % os.getcwd())
+    version('development', 'cd3911bc7669baa5aea61d338b9901ba', url="file://%s/gamess.tar.gz" % os.getcwd())
 
     depends_on('atlas')
     depends_on('mpi')
+
+    variant('msucc',default=False,description= \
+        'Build Michigan State University\'s Coupled Cluster Method CCT3')
 
 #   parallel = False
 
@@ -59,19 +62,24 @@ class Gamess(Package):
             # compile actvte.x
             subprocess.call([spack_fc,'-o',join_path(os.getcwd(),'tools/actvte.x'),'actvte.f'])
 
+        subprocess_array=['./bin/create-install-info.py', \
+                '--target','linux64', \
+                '--fortran',os.path.basename(spack_fc), \
+                '--fortran_version',spec.format('${COMPILERVER}'), \
+                '--math','atlas', \
+                '--mathlib_path',''.join(atlas.directories), \
+                '--ddi_comm','mpi', \
+                '--mpi_lib','openmpi', \
+                '--mpi_path',ancestor(''.join(mpi.directories),n=1), \
+                '--version',gamess_version_name, \
+                '--rungms'
+                ]
+
         # Build GAMESS
-        subprocess.call(['./bin/create-install-info.py', \
-            '--target','linux64', \
-            '--fortran',os.path.basename(spack_fc), \
-            '--fortran_version',spec.format('${COMPILERVER}'), \
-            '--math','atlas', \
-            '--mathlib_path',''.join(atlas.directories), \
-            '--ddi_comm','mpi', \
-            '--mpi_lib','openmpi', \
-            '--mpi_path',ancestor(''.join(mpi.directories),n=1), \
-            '--version',gamess_version_name, \
-            '--rungms'
-            ])
+        if spec.variants['msucc'].value:
+            subprocess_array.append('--msucc')
+
+        subprocess.call(subprocess_array)
 
         # Create object directory
         mkdirp('object')
